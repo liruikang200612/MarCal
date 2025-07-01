@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>跨区域营销日历</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: "#4f46e5",
+              secondary: "#10b981",
+            },
+            borderRadius: {
+              none: "0px",
+              sm: "4px",
+              DEFAULT: "8px",
+              md: "12px",
+              lg: "16px",
+              xl: "20px",
+              "2xl": "24px",
+              "3xl": "32px",
+              full: "9999px",
+              button: "8px",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      :where([class^="ri-"])::before { content: "\f3c2"; }
+      .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      }
+      .calendar-day {
+      aspect-ratio: 1.2;
+      border: 1px solid #e5e7eb;
+      padding: 0.5rem;
+      overflow: hidden;
+      }
+      .calendar-day:hover {
+      background-color: #f9fafb;
+      }
+      .today {
+      background-color: rgba(79, 70, 229, 0.05);
+      border: 1px solid rgba(79, 70, 229, 0.3);
+      }
+      .event-tag {
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.75rem;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      }
+      .lunar-date {
+      font-size: 0.7rem;
+      color: #6b7280;
+      }
+      input[type="checkbox"] {
+      appearance: none;
+      width: 1.25rem;
+      height: 1.25rem;
+      border: 2px solid #d1d5db;
+      border-radius: 0.25rem;
+      position: relative;
+      cursor: pointer;
+      }
+      input[type="checkbox"]:checked {
+      background-color: #4f46e5;
+      border-color: #4f46e5;
+      }
+      input[type="checkbox"]:checked::after {
+      content: "";
+      position: absolute;
+      left: 0.3rem;
+      top: 0.1rem;
+      width: 0.5rem;
+      height: 0.75rem;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+      }
+      .switch {
+      position: relative;
+      display: inline-block;
+      width: 2.5rem;
+      height: 1.5rem;
+      }
+      .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      }
+      .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #e5e7eb;
+      transition: .4s;
+      border-radius: 34px;
+      }
+      .slider:before {
+      position: absolute;
+      content: "";
+      height: 1.1rem;
+      width: 1.1rem;
+      left: 0.2rem;
+      bottom: 0.2rem;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+      }
+      input:checked + .slider {
+      background-color: #4f46e5;
+      }
+      input:checked + .slider:before {
+      transform: translateX(1rem);
+      }
+      .event-draggable {
+      cursor: grab;
+      transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .event-draggable:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+      .tab-button {
+      transition: all 0.3s ease;
+      }
+      .tab-button.active {
+      background-color: #4f46e5;
+      color: white;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div class="flex flex-col h-screen">
+      <!-- 顶部导航栏 -->
+      <header
+        class="bg-white shadow-sm py-4 px-6 flex items-center justify-between"
+      >
+        <div class="flex items-center">
+          <img
+            src="https://static.readdy.ai/image/8859ecb30276f4a0277afbb54b227b53/bfcd8baa4c3a8e358d620d1653423847.png"
+            alt="MarCal Logo"
+            class="h-[100px] w-[100px] mr-3"
+          />
+          <h1 class="text-2xl font-semibold text-gray-800">MerCal</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <div class="flex bg-gray-100 rounded-full px-1 py-1">
+            <button
+              class="tab-button active rounded-full px-4 py-1 text-sm font-medium whitespace-nowrap"
+              data-view="month"
+            >
+              月视图
+            </button>
+            <button
+              class="tab-button rounded-full px-4 py-1 text-sm font-medium text-gray-700 whitespace-nowrap"
+              data-view="list"
+            >
+              列表视图
+            </button>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button
+              class="p-2 rounded-full hover:bg-gray-100 w-8 h-8 flex items-center justify-center"
+            >
+              <i class="ri-arrow-left-s-line text-gray-600"></i>
+            </button>
+            <span class="text-gray-800 font-medium">2025年 6月</span>
+            <button
+              class="p-2 rounded-full hover:bg-gray-100 w-8 h-8 flex items-center justify-center"
+            >
+              <i class="ri-arrow-right-s-line text-gray-600"></i>
+            </button>
+          </div>
+          <div class="relative">
+            <div
+              class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"
+            >
+              <i class="ri-search-line text-gray-400"></i>
+            </div>
+            <input
+              type="text"
+              class="bg-gray-100 border-none text-sm rounded-full pl-10 pr-4 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-primary/20"
+              placeholder="搜索活动、节日或关键词"
+            />
+          </div>
+          <button
+            id="addEventButton"
+            class="bg-primary text-white px-4 py-2 rounded-button text-sm font-medium flex items-center whitespace-nowrap"
+          >
+            <i class="ri-add-line mr-1"></i>
+            添加活动
+          </button>
+          <div
+            class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden"
+          >
+            <img
+              src="https://readdy.ai/api/search-image?query=professional%20asian%20business%20woman%20portrait%2C%20minimalist%2C%20clean%20background%2C%20high%20quality&width=100&height=100&seq=avatar1&orientation=squarish"
+              alt="用户头像"
+              class="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      </header>
+      <!-- 主内容区域 -->
+      <div class="flex flex-1 overflow-hidden">
+        <!-- 左侧边栏 -->
+        <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+          <div class="p-4">
+            <div class="mb-6">
+              <h3 class="text-sm font-medium text-gray-500 mb-2">语言</h3>
+              <div class="relative">
+                <select
+                  class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 pl-3 pr-8 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option>简体中文</option>
+                  <option>English</option>
+                  <option>Tiếng Việt</option>
+                  <option>Bahasa Indonesia</option>
+                </select>
+                <div
+                  class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none"
+                >
+                  <i class="ri-arrow-down-s-line text-gray-500"></i>
+                </div>
+              </div>
+            </div>
+            <div class="mb-6">
+              <h3 class="text-sm font-medium text-gray-500 mb-2">区域</h3>
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input type="checkbox" checked class="mr-2" />
+                  <span class="text-sm text-gray-700">中国</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" checked class="mr-2" />
+                  <span class="text-sm text-gray-700">越南</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" checked class="mr-2" />
+                  <span class="text-sm text-gray-700">印度尼西亚</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" class="mr-2" />
+                  <span class="text-sm text-gray-700">泰国</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" class="mr-2" />
+                  <span class="text-sm text-gray-700">马来西亚</span>
+                </label>
+              </div>
+            </div>
+            <div class="mb-6">
+              <h3 class="text-sm font-medium text-gray-500 mb-2">日期格式</h3>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-700">显示农历</span>
+                <label class="switch">
+                  <input type="checkbox" checked />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+            <div class="mb-6">
+              <h3 class="text-sm font-medium text-gray-500 mb-2">事件类型</h3>
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked
+                    class="mr-2 event-type-checkbox"
+                    data-event-type="red"
+                  />
+                  <span class="w-3 h-3 rounded-full bg-red-400 mr-2"></span>
+                  <span class="text-sm text-gray-700">法定节假日</span>
+                </label>
+                <label class="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked
+                    class="mr-2 event-type-checkbox"
+                    data-event-type="blue"
+                  />
+                  <span class="w-3 h-3 rounded-full bg-blue-400 mr-2"></span>
+                  <span class="text-sm text-gray-700">营销活动</span>
+                </label>
+                <label class="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked
+                    class="mr-2 event-type-checkbox"
+                    data-event-type="green"
+                  />
+                  <span class="w-3 h-3 rounded-full bg-green-400 mr-2"></span>
+                  <span class="text-sm text-gray-700">本地节日</span>
+                </label>
+                <label class="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked
+                    class="mr-2 event-type-checkbox"
+                    data-event-type="purple"
+                  />
+                  <span class="w-3 h-3 rounded-full bg-purple-400 mr-2"></span>
+                  <span class="text-sm text-gray-700">自定义活动</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="mt-auto p-4 border-t border-gray-200">
+            <div class="flex items-center space-x-2 mb-2">
+              <div
+                class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center"
+              >
+                <i class="ri-team-line text-green-600"></i>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-gray-700">团队协作</p>
+                <p class="text-xs text-gray-500">5 人在线</p>
+              </div>
+            </div>
+            <div class="flex -space-x-2">
+              <img
+                class="w-8 h-8 rounded-full border-2 border-white"
+                src="https://readdy.ai/api/search-image?query=professional%20asian%20business%20man%20portrait%2C%20minimalist%2C%20clean%20background%2C%20high%20quality&width=100&height=100&seq=avatar2&orientation=squarish"
+                alt="用户头像"
+              />
+              <img
+                class="w-8 h-8 rounded-full border-2 border-white"
+                src="https://readdy.ai/api/search-image?query=professional%20asian%20business%20woman%20portrait%2C%20minimalist%2C%20clean%20background%2C%20high%20quality&width=100&height=100&seq=avatar3&orientation=squarish"
+                alt="用户头像"
+              />
+              <img
+                class="w-8 h-8 rounded-full border-2 border-white"
+                src="https://readdy.ai/api/search-image?query=professional%20asian%20business%20man%20portrait%2C%20minimalist%2C%20clean%20background%2C%20high%20quality&width=100&height=100&seq=avatar4&orientation=squarish"
+                alt="用户头像"
+              />
+              <img
+                class="w-8 h-8 rounded-full border-2 border-white"
+                src="https://readdy.ai/api/search-image?query=professional%20asian%20business%20woman%20portrait%2C%20minimalist%2C%20clean%20background%2C%20high%20quality&width=100&height=100&seq=avatar5&orientation=squarish"
+                alt="用户头像"
+              />
+              <div
+                class="w-8 h-8 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600"
+              >
+                +3
+              </div>
+            </div>
+          </div>
+        </aside>
+        <!-- 中间日历区域 -->
+        <main class="flex-1 overflow-auto p-6 bg-white">
+          <!-- 星期标题 -->
+          <div class="calendar-grid mb-1">
+            <div class="text-center py-2 text-sm font-medium text-gray-500">
+              周日
+            </div>
+            <div class="text-center py-2 text-sm font-medium text-gray-500">
+              周一
+            </div>
+            <div class="text-center py-2 text-sm font-medium text-gray-500">
+              周二
+            </div>
+            <div class="text-center py-2 text-sm font-medium text-gray-500">
+              周三
+            </div>
+            <div class="text-center py-2 text-sm font-medium text-gray-500">
+              周四
+            </div>
+            <div class="text-center py-2 text-sm font-medium text-gray-500">
+              周五
+            </div>
+            <div class="text-center py-2 text-sm font-medium text-gray-500">
+              周六
+            </div>
+          </div>
+          <!-- 日历网格 -->
+          <div class="calendar-grid">
+            <!-- 上个月的日期 -->
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">25</span>
+                <span class="lunar-date">五月十九</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">26</span>
+                <span class="lunar-date">五月二十</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">27</span>
+                <span class="lunar-date">五月廿一</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">28</span>
+                <span class="lunar-date">五月廿二</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">29</span>
+                <span class="lunar-date">五月廿三</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">30</span>
+                <span class="lunar-date">五月廿四</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">31</span>
+                <span class="lunar-date">五月廿五</span>
+              </div>
+            </div>
+            <!-- 本月第一周 -->
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>1</span>
+                <span class="lunar-date">五月廿六</span>
+              </div>
+              <div class="mt-1">
+                <div class="event-tag bg-green-100 text-green-800">
+                  端午节 (中国)
+                </div>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>2</span>
+                <span class="lunar-date">五月廿七</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>3</span>
+                <span class="lunar-date">五月廿八</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>4</span>
+                <span class="lunar-date">五月廿九</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>5</span>
+                <span class="lunar-date">六月初一</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>6</span>
+                <span class="lunar-date">六月初二</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>7</span>
+                <span class="lunar-date">六月初三</span>
+              </div>
+            </div>
+            <!-- 本月第二周 -->
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>8</span>
+                <span class="lunar-date">六月初四</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>9</span>
+                <span class="lunar-date">六月初五</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>10</span>
+                <span class="lunar-date">六月初六</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>11</span>
+                <span class="lunar-date">六月初七</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>12</span>
+                <span class="lunar-date">六月初八</span>
+              </div>
+              <div class="mt-1">
+                <div class="event-tag bg-blue-100 text-blue-800">
+                  夏季促销开始
+                </div>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>13</span>
+                <span class="lunar-date">六月初九</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>14</span>
+                <span class="lunar-date">六月初十</span>
+              </div>
+            </div>
+            <!-- 本月第三周 -->
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>15</span>
+                <span class="lunar-date">六月十一</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>16</span>
+                <span class="lunar-date">六月十二</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>17</span>
+                <span class="lunar-date">六月十三</span>
+              </div>
+              <div class="mt-1">
+                <div class="event-tag bg-red-100 text-red-800">印尼独立日</div>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>18</span>
+                <span class="lunar-date">六月十四</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>19</span>
+                <span class="lunar-date">六月十五</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>20</span>
+                <span class="lunar-date">六月十六</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>21</span>
+                <span class="lunar-date">六月十七</span>
+              </div>
+            </div>
+            <!-- 本月第四周 -->
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>22</span>
+                <span class="lunar-date">六月十八</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>23</span>
+                <span class="lunar-date">六月十九</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>24</span>
+                <span class="lunar-date">六月二十</span>
+              </div>
+            </div>
+            <div class="calendar-day today">
+              <div class="flex justify-between items-start">
+                <span class="font-bold text-primary">25</span>
+                <span class="lunar-date">六月廿一</span>
+              </div>
+              <div class="mt-1">
+                <div class="event-tag bg-purple-100 text-purple-800">
+                  品牌推广会议
+                </div>
+                <div class="event-tag bg-blue-100 text-blue-800">
+                  社交媒体活动
+                </div>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>26</span>
+                <span class="lunar-date">六月廿二</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>27</span>
+                <span class="lunar-date">六月廿三</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>28</span>
+                <span class="lunar-date">六月廿四</span>
+              </div>
+            </div>
+            <!-- 本月第五周 -->
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>29</span>
+                <span class="lunar-date">六月廿五</span>
+              </div>
+            </div>
+            <div class="calendar-day">
+              <div class="flex justify-between items-start">
+                <span>30</span>
+                <span class="lunar-date">六月廿六</span>
+              </div>
+              <div class="mt-1">
+                <div class="event-tag bg-green-100 text-green-800">
+                  越南家庭日
+                </div>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">1</span>
+                <span class="lunar-date">六月廿七</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">2</span>
+                <span class="lunar-date">六月廿八</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">3</span>
+                <span class="lunar-date">六月廿九</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">4</span>
+                <span class="lunar-date">七月初一</span>
+              </div>
+            </div>
+            <div class="calendar-day bg-gray-50">
+              <div class="flex justify-between items-start">
+                <span class="text-gray-400">5</span>
+                <span class="lunar-date">七月初二</span>
+              </div>
+            </div>
+          </div>
+        </main>
+        <!-- 右侧边栏 -->
+        <aside class="w-80 bg-white border-l border-gray-200 flex flex-col">
+          <div class="p-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">活动模块</h2>
+            <div class="space-y-3">
+              <div class="event-draggable bg-red-100 p-3 rounded shadow-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-red-800"
+                    >法定节假日</span
+                  >
+                  <i class="ri-drag-move-line text-red-500"></i>
+                </div>
+                <p class="text-xs text-red-700 mt-1">
+                  拖拽此模块到日历中添加节假日
+                </p>
+              </div>
+              <div class="event-draggable bg-blue-100 p-3 rounded shadow-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-blue-800"
+                    >营销活动</span
+                  >
+                  <i class="ri-drag-move-line text-blue-500"></i>
+                </div>
+                <p class="text-xs text-blue-700 mt-1">
+                  拖拽此模块到日历中添加营销活动
+                </p>
+              </div>
+              <div class="event-draggable bg-green-100 p-3 rounded shadow-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-green-800"
+                    >本地节日</span
+                  >
+                  <i class="ri-drag-move-line text-green-500"></i>
+                </div>
+                <p class="text-xs text-green-700 mt-1">
+                  拖拽此模块到日历中添加本地节日
+                </p>
+              </div>
+              <div class="event-draggable bg-purple-100 p-3 rounded shadow-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-purple-800"
+                    >自定义活动</span
+                  >
+                  <i class="ri-drag-move-line text-purple-500"></i>
+                </div>
+                <p class="text-xs text-purple-700 mt-1">
+                  拖拽此模块到日历中添加自定义活动
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 flex-1 overflow-auto">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">
+              即将到来的活动
+            </h2>
+            <div class="space-y-4">
+              <div
+                class="bg-white border border-gray-200 rounded p-3 shadow-sm"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-purple-800"
+                    >品牌推广会议</span
+                  >
+                  <span class="text-xs text-gray-500">今天</span>
+                </div>
+                <p class="text-xs text-gray-600 mt-1">
+                  与市场团队讨论新产品推广策略
+                </p>
+                <div class="flex items-center mt-2">
+                  <span
+                    class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded mr-2"
+                    >中国</span
+                  >
+                  <span
+                    class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded"
+                    >越南</span
+                  >
+                </div>
+              </div>
+              <div
+                class="bg-white border border-gray-200 rounded p-3 shadow-sm"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-blue-800"
+                    >社交媒体活动</span
+                  >
+                  <span class="text-xs text-gray-500">今天</span>
+                </div>
+                <p class="text-xs text-gray-600 mt-1">
+                  发布夏季促销社交媒体内容
+                </p>
+                <div class="flex items-center mt-2">
+                  <span
+                    class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded mr-2"
+                    >所有区域</span
+                  >
+                </div>
+              </div>
+              <div
+                class="bg-white border border-gray-200 rounded p-3 shadow-sm"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-green-800"
+                    >越南家庭日</span
+                  >
+                  <span class="text-xs text-gray-500">5 天后</span>
+                </div>
+                <p class="text-xs text-gray-600 mt-1">
+                  越南本地家庭主题促销活动
+                </p>
+                <div class="flex items-center mt-2">
+                  <span
+                    class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded"
+                    >越南</span
+                  >
+                </div>
+              </div>
+            </div>
+            <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">
+              AI 推荐活动
+            </h2>
+            <div class="space-y-4">
+              <div class="bg-gray-50 border border-gray-200 rounded p-3">
+                <div class="flex items-center">
+                  <div
+                    class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2"
+                  >
+                    <i class="ri-robot-line text-primary"></i>
+                  </div>
+                  <div>
+                    <span class="text-sm font-medium text-gray-800"
+                      >AI 助手</span
+                    >
+                    <p class="text-xs text-gray-600">根据历史数据推荐</p>
+                  </div>
+                </div>
+                <div class="mt-3 space-y-2">
+                  <div class="bg-white border border-gray-200 rounded p-2">
+                    <p class="text-sm font-medium text-gray-800">
+                      7 月促销准备
+                    </p>
+                    <p class="text-xs text-gray-600 mt-1">
+                      建议在 6 月 28 日开始准备 7 月促销活动
+                    </p>
+                    <div class="flex justify-end mt-1">
+                      <button
+                        class="text-xs text-primary font-medium whitespace-nowrap"
+                      >
+                        添加到日历
+                      </button>
+                    </div>
+                  </div>
+                  <div class="bg-white border border-gray-200 rounded p-2">
+                    <p class="text-sm font-medium text-gray-800">
+                      印尼斋月准备
+                    </p>
+                    <p class="text-xs text-gray-600 mt-1">
+                      印尼斋月将于 7 月初开始，建议提前准备相关活动
+                    </p>
+                    <div class="flex justify-end mt-1">
+                      <button
+                        class="text-xs text-primary font-medium whitespace-nowrap"
+                      >
+                        添加到日历
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 border-t border-gray-200">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-medium text-gray-700">通知提醒</h3>
+              <span class="text-xs text-primary font-medium cursor-pointer"
+                >管理提醒</span
+              >
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600">活动前 1 天提醒</span>
+              <label class="switch">
+                <input type="checkbox" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <script id="tabSwitcher">
+      document.addEventListener("DOMContentLoaded", function () {
+        const tabButtons = document.querySelectorAll(".tab-button");
+        const mainContent = document.querySelector("main");
+        const calendarView = mainContent.innerHTML;
+        function createListView() {
+          return `
+      <div class="p-6">
+      <div class="space-y-6">
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-semibold text-gray-800">6 月</h3>
+      </div>
+      <div class="divide-y divide-gray-200">
+      <div class="px-6 py-4 flex items-center">
+      <div class="w-16 text-center">
+      <div class="text-2xl font-semibold text-gray-800">1</div>
+      <div class="text-sm text-gray-500">周六</div>
+      </div>
+      <div class="ml-6 flex-1">
+      <div class="event-tag bg-green-100 text-green-800 inline-block">端午节 (中国)</div>
+      </div>
+      </div>
+      <div class="px-6 py-4 flex items-center">
+      <div class="w-16 text-center">
+      <div class="text-2xl font-semibold text-gray-800">12</div>
+      <div class="text-sm text-gray-500">周三</div>
+      </div>
+      <div class="ml-6 flex-1">
+      <div class="event-tag bg-blue-100 text-blue-800 inline-block">夏季促销开始</div>
+      </div>
+      </div>
+      <div class="px-6 py-4 flex items-center">
+      <div class="w-16 text-center">
+      <div class="text-2xl font-semibold text-gray-800">17</div>
+      <div class="text-sm text-gray-500">周一</div>
+      </div>
+      <div class="ml-6 flex-1">
+      <div class="event-tag bg-red-100 text-red-800 inline-block">印尼独立日</div>
+      </div>
+      </div>
+      <div class="px-6 py-4 flex items-center">
+      <div class="w-16 text-center">
+      <div class="text-2xl font-semibold text-gray-800">25</div>
+      <div class="text-sm text-gray-500">周二</div>
+      </div>
+      <div class="ml-6 flex-1">
+      <div class="event-tag bg-purple-100 text-purple-800 inline-block mb-2">品牌推广会议</div>
+      <div class="event-tag bg-blue-100 text-blue-800 inline-block">社交媒体活动</div>
+      </div>
+      </div>
+      <div class="px-6 py-4 flex items-center">
+      <div class="w-16 text-center">
+      <div class="text-2xl font-semibold text-gray-800">30</div>
+      <div class="text-sm text-gray-500">周日</div>
+      </div>
+      <div class="ml-6 flex-1">
+      <div class="event-tag bg-green-100 text-green-800 inline-block">越南家庭日</div>
+      </div>
+      </div>
+      </div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-semibold text-gray-800">7 月</h3>
+      </div>
+      <div class="divide-y divide-gray-200">
+      <div class="px-6 py-4 flex items-center">
+      <div class="w-16 text-center">
+      <div class="text-2xl font-semibold text-gray-800">1</div>
+      <div class="text-sm text-gray-500">周一</div>
+      </div>
+      <div class="ml-6 flex-1">
+      <div class="event-tag bg-blue-100 text-blue-800 inline-block">七月促销开始</div>
+      </div>
+      </div>
+      <div class="px-6 py-4 flex items-center">
+      <div class="w-16 text-center">
+      <div class="text-2xl font-semibold text-gray-800">10</div>
+      <div class="text-sm text-gray-500">周三</div>
+      </div>
+      <div class="ml-6 flex-1">
+      <div class="event-tag bg-green-100 text-green-800 inline-block">印尼开斋节</div>
+      </div>
+      </div>
+      </div>
+      </div>
+      </div>
+      </div>
+      `;
+        }
+        tabButtons.forEach((button) => {
+          button.addEventListener("click", function () {
+            const view = this.getAttribute("data-view");
+            tabButtons.forEach((btn) => {
+              btn.classList.remove("active");
+              btn.classList.add("text-gray-700");
+            });
+            this.classList.add("active");
+            this.classList.remove("text-gray-700");
+            if (view === "list") {
+              mainContent.innerHTML = createListView();
+            } else {
+              mainContent.innerHTML = calendarView;
+            }
+          });
+        });
+      });
+    </script>
+    <script id="calendarNavigation">
+      document.addEventListener("DOMContentLoaded", function () {
+        let currentDate = new Date(2025, 5, 1);
+        const monthDisplay = document.querySelector(".text-gray-800.font-medium");
+        const nextMonthButton = document.querySelector(
+          ".ri-arrow-right-s-line",
+        ).parentElement;
+        const prevMonthButton = document.querySelector(
+          ".ri-arrow-left-s-line",
+        ).parentElement;
+        const lunarData = {
+          "2025-7": {
+            1: "六月廿七",
+            2: "六月廿八",
+            3: "六月廿九",
+            4: "七月初一",
+            5: "七月初二",
+            6: "七月初三",
+            7: "七月初四",
+            8: "七月初五",
+            9: "七月初六",
+            10: "七月初七",
+            11: "七月初八",
+            12: "七月初九",
+            13: "七月初十",
+            14: "七月十一",
+            15: "七月十二",
+            16: "七月十三",
+            17: "七月十四",
+            18: "七月十五",
+            19: "七月十六",
+            20: "七月十七",
+            21: "七月十八",
+            22: "七月十九",
+            23: "七月二十",
+            24: "七月廿一",
+            25: "七月廿二",
+            26: "七月廿三",
+            27: "七月廿四",
+            28: "七月廿五",
+            29: "七月廿六",
+            30: "七月廿七",
+            31: "七月廿八",
+          },
+        };
+        const eventData = {
+          "2025-7": {
+            1: [{ text: "七月促销开始", type: "blue" }],
+            10: [{ text: "印尼开斋节", type: "green" }],
+            15: [{ text: "夏季清仓", type: "blue" }],
+            25: [{ text: "越南传统节日", type: "green" }],
+          },
+        };
+        function updateCalendar(date) {
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const firstDay = new Date(year, date.getMonth(), 1);
+          const lastDay = new Date(year, date.getMonth() + 1, 0);
+          const firstDayWeek = firstDay.getDay();
+          const totalDays = lastDay.getDate();
+          monthDisplay.textContent = `${year}年 ${month}月`;
+          const calendarGrid = document.querySelector(
+            ".calendar-grid:not(:first-child)",
+          );
+          calendarGrid.innerHTML = "";
+          let currentMonthKey = `${year}-${month}`;
+          let prevMonthLastDate = new Date(year, date.getMonth(), 0);
+          for (let i = firstDayWeek - 1; i >= 0; i--) {
+            const dayDiv = createDayCell(prevMonthLastDate.getDate() - i, true);
+            calendarGrid.appendChild(dayDiv);
+          }
+          for (let i = 1; i <= totalDays; i++) {
+            const dayDiv = createDayCell(i, false);
+            if (lunarData[currentMonthKey] && lunarData[currentMonthKey][i]) {
+              dayDiv.querySelector(".lunar-date").textContent =
+                lunarData[currentMonthKey][i];
+            }
+            if (eventData[currentMonthKey] && eventData[currentMonthKey][i]) {
+              const eventsContainer = document.createElement("div");
+              eventsContainer.className = "mt-1";
+              eventData[currentMonthKey][i].forEach((event) => {
+                const eventDiv = document.createElement("div");
+                eventDiv.className = `event-tag bg-${event.type}-100 text-${event.type}-800`;
+                eventDiv.textContent = event.text;
+                eventsContainer.appendChild(eventDiv);
+              });
+              dayDiv.appendChild(eventsContainer);
+            }
+            calendarGrid.appendChild(dayDiv);
+          }
+          const remainingDays = 42 - (firstDayWeek + totalDays);
+          for (let i = 1; i <= remainingDays; i++) {
+            const dayDiv = createDayCell(i, true);
+            calendarGrid.appendChild(dayDiv);
+          }
+        }
+        function createDayCell(day, isOtherMonth) {
+          const dayDiv = document.createElement("div");
+          dayDiv.className = `calendar-day${isOtherMonth ? " bg-gray-50" : ""}`;
+          dayDiv.innerHTML = `
+      <div class="flex justify-between items-start">
+      <span${isOtherMonth ? ' class="text-gray-400"' : ""}>${day}</span>
+      <span class="lunar-date"></span>
+      </div>
+      `;
+          return dayDiv;
+        }
+        nextMonthButton.addEventListener("click", () => {
+          currentDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() + 1,
+            1,
+          );
+          updateCalendar(currentDate);
+        });
+        prevMonthButton.addEventListener("click", () => {
+          currentDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() - 1,
+            1,
+          );
+          updateCalendar(currentDate);
+        });
+      });
+    </script>
+    <script id="eventDraggable">
+      document.addEventListener("DOMContentLoaded", function () {
+        const draggables = document.querySelectorAll(".event-draggable");
+        const calendarDays = document.querySelectorAll(".calendar-day");
+        const regionCheckboxes = document.querySelectorAll(
+          'input[type="checkbox"]:not(.event-type-checkbox)',
+        );
+        const eventTypeCheckboxes = document.querySelectorAll(".event-type-checkbox");
+        function filterEventsByType() {
+          const selectedTypes = Array.from(eventTypeCheckboxes)
+            .filter((cb) => cb.checked)
+            .map((cb) => cb.getAttribute("data-event-type"));
+          const calendarEvents = document.querySelectorAll(".event-tag");
+          calendarEvents.forEach((event) => {
+            const eventType = Array.from(event.classList)
+              .find((cls) => cls.startsWith("bg-"))
+              ?.split("-")[1];
+            const shouldShow = selectedTypes.includes(eventType);
+            event.style.display = shouldShow ? "block" : "none";
+          });
+          const upcomingEvents = document.querySelectorAll(
+            ".bg-white.border.border-gray-200.rounded.p-3.shadow-sm",
+          );
+          upcomingEvents.forEach((event) => {
+            const eventText = event.querySelector(".text-sm.font-medium");
+            if (eventText) {
+              const eventType = Array.from(eventText.classList)
+                .find((cls) => cls.startsWith("text-"))
+                ?.split("-")[1];
+              const shouldShow = selectedTypes.includes(eventType);
+              event.style.display = shouldShow ? "block" : "none";
+            }
+          });
+        }
+        eventTypeCheckboxes.forEach((checkbox) => {
+          checkbox.addEventListener("change", function () {
+            filterEventsByType();
+            const eventType =
+              this.nextElementSibling.nextElementSibling.textContent.trim();
+            showToast(`已${this.checked ? "显示" : "隐藏"}${eventType}`);
+          });
+        });
+        const lunarSwitch = document.querySelector('.switch input[type="checkbox"]');
+        const reminderSwitch = document.querySelector(
+          'aside .switch input[type="checkbox"]',
+        );
+        const lunarDates = document.querySelectorAll(".lunar-date");
+        function showToast(message) {
+          const toast = document.createElement("div");
+          toast.className =
+            "fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm transition-all duration-300 z-50";
+          toast.style.opacity = "0";
+          toast.textContent = message;
+          document.body.appendChild(toast);
+          requestAnimationFrame(() => {
+            toast.style.opacity = "1";
+            setTimeout(() => {
+              toast.style.opacity = "0";
+              setTimeout(() => toast.remove(), 300);
+            }, 2000);
+          });
+        }
+        function filterEvents() {
+          const selectedRegions = Array.from(regionCheckboxes)
+            .filter((cb) => cb.checked && !cb.closest(".switch"))
+            .map((cb) => cb.nextElementSibling.textContent.trim());
+          const calendarEvents = document.querySelectorAll(".event-tag");
+          calendarEvents.forEach((event) => {
+            const eventRegions = event.getAttribute("data-regions")?.split(",") || [];
+            const shouldShow =
+              selectedRegions.length === 0 ||
+              eventRegions.some((r) => selectedRegions.includes(r));
+            event.style.display = shouldShow ? "block" : "none";
+          });
+          const upcomingEvents = document.querySelectorAll(
+            ".bg-white.border.border-gray-200.rounded.p-3.shadow-sm",
+          );
+          upcomingEvents.forEach((event) => {
+            const regionTags = event.querySelectorAll(
+              ".text-xs.bg-gray-100.text-gray-600",
+            );
+            const eventRegions = Array.from(regionTags).map((tag) =>
+              tag.textContent.trim(),
+            );
+            const shouldShow =
+              selectedRegions.length === 0 ||
+              eventRegions.some((r) => selectedRegions.includes(r));
+            event.style.display = shouldShow ? "block" : "none";
+          });
+        }
+        function showToast(message) {
+          const toast = document.createElement("div");
+          toast.className =
+            "fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm transition-all duration-300 z-50";
+          toast.style.opacity = "0";
+          toast.textContent = message;
+          document.body.appendChild(toast);
+          requestAnimationFrame(() => {
+            toast.style.opacity = "1";
+            setTimeout(() => {
+              toast.style.opacity = "0";
+              setTimeout(() => toast.remove(), 300);
+            }, 2000);
+          });
+        }
+        regionCheckboxes.forEach((checkbox) => {
+          if (!checkbox.closest(".switch")) {
+            checkbox.addEventListener("change", function () {
+              const region = this.nextElementSibling.textContent.trim();
+              filterEvents();
+              showToast(`已${this.checked ? "显示" : "隐藏"}${region}地区的活动`);
+              const selectedRegions = Array.from(regionCheckboxes)
+                .filter((cb) => cb.checked && !cb.closest(".switch"))
+                .map((cb) => cb.nextElementSibling.textContent.trim());
+              localStorage.setItem(
+                "selectedRegions",
+                JSON.stringify(selectedRegions),
+              );
+            });
+          }
+        });
+        const savedRegions = JSON.parse(
+          localStorage.getItem("selectedRegions") || "[]",
+        );
+        regionCheckboxes.forEach((checkbox) => {
+          if (!checkbox.closest(".switch")) {
+            const region = checkbox.nextElementSibling.textContent.trim();
+            checkbox.checked =
+              savedRegions.length === 0 || savedRegions.includes(region);
+          }
+        });
+        filterEvents();
+        lunarSwitch.addEventListener("change", function () {
+          lunarDates.forEach((date) => {
+            date.style.display = this.checked ? "block" : "none";
+          });
+          localStorage.setItem("showLunarDates", this.checked);
+        });
+        reminderSwitch.addEventListener("change", function () {
+          localStorage.setItem("eventReminder", this.checked);
+          const notificationStatus = document.createElement("div");
+          notificationStatus.className =
+            "fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm transition-opacity duration-300";
+          notificationStatus.textContent = this.checked
+            ? "已开启活动提醒"
+            : "已关闭活动提醒";
+          document.body.appendChild(notificationStatus);
+          setTimeout(() => {
+            notificationStatus.style.opacity = "0";
+            setTimeout(() => notificationStatus.remove(), 300);
+          }, 2000);
+        });
+        const savedLunarSetting = localStorage.getItem("showLunarDates");
+        if (savedLunarSetting !== null) {
+          lunarSwitch.checked = savedLunarSetting === "true";
+          lunarDates.forEach((date) => {
+            date.style.display = lunarSwitch.checked ? "block" : "none";
+          });
+        }
+        const savedReminderSetting = localStorage.getItem("eventReminder");
+        if (savedReminderSetting !== null) {
+          reminderSwitch.checked = savedReminderSetting === "true";
+        }
+        regionCheckboxes.forEach((checkbox) => {
+          checkbox.addEventListener("change", function () {
+            const region = this.value;
+            const isChecked = this.checked;
+            const selectedRegions = Array.from(regionCheckboxes)
+              .filter((cb) => cb.checked)
+              .map((cb) => cb.value);
+            const calendarEvents = document.querySelectorAll(".event-tag");
+            calendarEvents.forEach((event) => {
+              const eventRegions =
+                event.getAttribute("data-regions")?.split(",") || [];
+              const shouldShow =
+                selectedRegions.length === 0 ||
+                eventRegions.some((r) => selectedRegions.includes(r));
+              event.style.display = shouldShow ? "block" : "none";
+            });
+            const upcomingEvents = document.querySelectorAll(
+              ".bg-white.border.border-gray-200.rounded.p-3.shadow-sm",
+            );
+            upcomingEvents.forEach((event) => {
+              const eventRegionTags = event.querySelectorAll(
+                ".text-xs.bg-gray-100.text-gray-600",
+              );
+              const eventRegions = Array.from(eventRegionTags).map(
+                (tag) => tag.textContent,
+              );
+              const shouldShow =
+                selectedRegions.length === 0 ||
+                eventRegions.some((r) => selectedRegions.includes(r));
+              event.style.display = shouldShow ? "block" : "none";
+            });
+            const notification = document.createElement("div");
+            notification.className =
+              "fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm transition-opacity duration-300";
+            notification.textContent = `已${isChecked ? "显示" : "隐藏"}${region}地区的活动`;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+              notification.style.opacity = "0";
+              setTimeout(() => notification.remove(), 300);
+            }, 2000);
+          });
+        });
+        const modalHTML = `
+      <div id="eventModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+      <div class="bg-white rounded-lg w-[480px] shadow-xl">
+      <div class="p-6">
+      <h3 class="text-xl font-semibold text-gray-800 mb-4">添加活动</h3>
+      <form id="eventForm">
+      <div class="space-y-4">
+      <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">活动名称</label>
+      <input type="text" id="eventName" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/20">
+      </div>
+      <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">活动类型</label>
+      <select id="eventType" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/20">
+      <option value="red">法定节假日</option>
+      <option value="blue">营销活动</option>
+      <option value="green">本地节日</option>
+      <option value="purple">自定义活动</option>
+      </select>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+      <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">开始时间</label>
+      <input type="datetime-local" id="eventStartTime" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/20">
+      </div>
+      <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">结束时间</label>
+      <input type="datetime-local" id="eventEndTime" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/20">
+      </div>
+      </div>
+      <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">地点</label>
+      <input type="text" id="eventLocation" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/20">
+      </div>
+      <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+      <textarea id="eventDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/20"></textarea>
+      </div>
+      <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">参与区域</label>
+      <div class="flex flex-wrap gap-2">
+      <label class="inline-flex items-center">
+      <input type="checkbox" name="regions" value="中国" class="mr-2">
+      <span class="text-sm text-gray-700">中国</span>
+      </label>
+      <label class="inline-flex items-center">
+      <input type="checkbox" name="regions" value="越南" class="mr-2">
+      <span class="text-sm text-gray-700">越南</span>
+      </label>
+      <label class="inline-flex items-center">
+      <input type="checkbox" name="regions" value="印度尼西亚" class="mr-2">
+      <span class="text-sm text-gray-700">印度尼西亚</span>
+      </label>
+      </div>
+      </div>
+      </div>
+      </form>
+      </div>
+      <div class="px-6 py-4 bg-gray-50 rounded-b-lg flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+      <button id="deleteEventBtn" class="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 rounded-button">删除活动</button>
+      </div>
+      <div class="flex items-center space-x-2">
+      <button id="closeEventModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 rounded-button">取消</button>
+      <button id="saveEventBtn" class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-button">保存</button>
+      </div>
+      </div>
+      </div>
+      </div>
+      <div id="confirmDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+      <div class="bg-white rounded-lg w-[320px] shadow-xl">
+      <div class="p-6">
+      <h3 class="text-lg font-semibold text-gray-800 mb-2">确认删除</h3>
+      <p class="text-sm text-gray-600">确定要删除这个活动吗？此操作无法撤销。</p>
+      </div>
+      <div class="px-6 py-4 bg-gray-50 rounded-b-lg flex justify-end space-x-2">
+      <button id="cancelDelete" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 rounded-button">取消</button>
+      <button id="confirmDelete" class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-button">删除</button>
+      </div>
+      </div>
+      </div>
+      `;
+        document.body.insertAdjacentHTML("beforeend", modalHTML);
+        const eventModal = document.getElementById("eventModal");
+        const confirmDialog = document.getElementById("confirmDialog");
+        const eventForm = document.getElementById("eventForm");
+        let currentEventTag = null;
+        function showEventModal(eventTag) {
+          currentEventTag = eventTag;
+          eventModal.classList.remove("hidden");
+          document.getElementById("eventName").value = eventTag.textContent;
+        }
+        function hideEventModal() {
+          eventModal.classList.add("hidden");
+          currentEventTag = null;
+        }
+        function showConfirmDialog() {
+          confirmDialog.classList.remove("hidden");
+        }
+        function hideConfirmDialog() {
+          confirmDialog.classList.add("hidden");
+        }
+        document
+          .getElementById("closeEventModal")
+          .addEventListener("click", hideEventModal);
+        document
+          .getElementById("deleteEventBtn")
+          .addEventListener("click", showConfirmDialog);
+        document
+          .getElementById("cancelDelete")
+          .addEventListener("click", hideConfirmDialog);
+        document.getElementById("confirmDelete").addEventListener("click", () => {
+          if (currentEventTag) {
+            currentEventTag.remove();
+          }
+          hideConfirmDialog();
+          hideEventModal();
+        });
+        document.getElementById("addEventButton").addEventListener("click", () => {
+          currentEventTag = null;
+          document.getElementById("eventForm").reset();
+          eventModal.classList.remove("hidden");
+        });
+        document.getElementById("saveEventBtn").addEventListener("click", () => {
+          const eventName = document.getElementById("eventName").value;
+          const eventType = document.getElementById("eventType").value;
+          const startTime = document.getElementById("eventStartTime").value;
+          const endTime = document.getElementById("eventEndTime").value;
+          const location = document.getElementById("eventLocation").value;
+          const description = document.getElementById("eventDescription").value;
+          const selectedRegions = Array.from(
+            document.querySelectorAll('input[name="regions"]:checked'),
+          ).map((checkbox) => checkbox.value);
+          if (!eventName) {
+            showToast("请输入活动名称");
+            return;
+          }
+          if (!startTime) {
+            showToast("请选择开始时间");
+            return;
+          }
+          if (currentEventTag) {
+            currentEventTag.textContent = eventName;
+          } else {
+            const startDate = new Date(startTime);
+            const targetDay = document
+              .querySelector(
+                `.calendar-day:not(.bg-gray-50) span:not(.lunar-date):contains("${startDate.getDate()}")`,
+              )
+              .closest(".calendar-day");
+            if (targetDay) {
+              const eventsContainer =
+                targetDay.querySelector(".mt-1") ||
+                (() => {
+                  const container = document.createElement("div");
+                  container.className = "mt-1";
+                  targetDay.appendChild(container);
+                  return container;
+                })();
+              const newEvent = document.createElement("div");
+              newEvent.className = `event-tag bg-${eventType}-100 text-${eventType}-800`;
+              newEvent.textContent = eventName;
+              newEvent.setAttribute("data-regions", selectedRegions.join(","));
+              newEvent.addEventListener("click", () => showEventModal(newEvent));
+              eventsContainer.appendChild(newEvent);
+              showToast("活动创建成功");
+            }
+          }
+          hideEventModal();
+        });
+        document.addEventListener("DOMContentLoaded", function () {
+          const addSelector = document.createElement("style");
+          addSelector.textContent = ":contains { display: inline; }";
+          document.head.appendChild(addSelector);
+        });
+        draggables.forEach((draggable) => {
+          draggable.addEventListener("dragstart", function (e) {
+            e.dataTransfer.setData("text/plain", draggable.innerHTML);
+            setTimeout(() => {
+              draggable.classList.add("opacity-50");
+            }, 0);
+          });
+          draggable.addEventListener("dragend", function () {
+            draggable.classList.remove("opacity-50");
+          });
+          // 使元素可拖拽
+          draggable.setAttribute("draggable", "true");
+        });
+        calendarDays.forEach((day) => {
+          day.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            day.classList.add("bg-gray-100");
+          });
+          day.addEventListener("dragleave", function () {
+            day.classList.remove("bg-gray-100");
+          });
+          day.addEventListener("drop", function (e) {
+            e.preventDefault();
+            day.classList.remove("bg-gray-100");
+            const draggedHTML = e.dataTransfer.getData("text/plain");
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = draggedHTML;
+            const eventTitle = tempDiv.querySelector(".font-medium").textContent;
+            const bgColorClass = Array.from(tempDiv.classList).find((cls) =>
+              cls.startsWith("bg-"),
+            );
+            const textColorClass = Array.from(
+              tempDiv.querySelector(".font-medium").classList,
+            ).find((cls) => cls.startsWith("text-"));
+            const selectedRegions = Array.from(regionCheckboxes)
+              .filter((cb) => cb.checked && !cb.closest(".switch"))
+              .map((cb) => cb.nextElementSibling.textContent.trim());
+            // 创建新的事件标签
+            const newEvent = document.createElement("div");
+            newEvent.className = `event-tag ${bgColorClass} ${textColorClass}`;
+            newEvent.textContent = eventTitle;
+            // Add data attribute for regions
+            const eventRegions = Array.from(
+              document.querySelectorAll('input[name="regions"]:checked'),
+            ).map((checkbox) => checkbox.value);
+            newEvent.setAttribute("data-regions", eventRegions.join(","));
+            // Check if event should be visible based on current region filters
+            const shouldShow = eventRegions.length > 0;
+            newEvent.style.display = shouldShow ? "block" : "none";
+            // 添加到日历单元格
+            const eventsContainer =
+              day.querySelector(".mt-1") ||
+              (() => {
+                const container = document.createElement("div");
+                container.className = "mt-1";
+                day.appendChild(container);
+                return container;
+              })();
+            eventsContainer.appendChild(newEvent);
+            newEvent.addEventListener("click", () => showEventModal(newEvent));
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
