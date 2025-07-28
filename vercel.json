@@ -2,15 +2,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "server/index.ts",
-      "use": "@vercel/node",
+      "src": "package.json",
+      "use": "@vercel/static-build",
       "config": {
-        "includeFiles": ["shared/**", "server/**"]
+        "distDir": "client/dist"
       }
     },
     {
-      "src": "client/dist/**",
-      "use": "@vercel/static"
+      "src": "server/index.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -23,7 +23,9 @@
       "dest": "/client/dist/$1"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
+  "functions": {
+    "server/index.ts": {
+      "maxDuration": 30
+    }
   }
 }
